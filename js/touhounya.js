@@ -54,8 +54,15 @@ body.addEventListener('keyup', key_up_fn);
 // 初始化canvas
 const ctxm = canvas_main.getContext('2d');
 
-// 音效
+// 载入音效
 const se_biu = new Audio('./se/se_pldead00.wav');
+
+// 载入图形
+const img_judging_radius_1 = new Image();
+img_judging_radius_1.src = './img/jiki/judging_radius_1.png';
+
+const img_bullet_round_n_1 = new Image();
+img_bullet_round_n_1.src = './img/danmaku/bullet_round_n_1.png';
 
 
 // 弹幕列表
@@ -70,8 +77,8 @@ function straight_down(frame){
 
 function rand_spe_straight_down(speed_y, speed_x){
 	return function(frame){
-		let x = frame * speed_x;
-		let y = frame * speed_y;
+		let x = frame * speed_x * 0.5;
+		let y = frame * speed_y * 0.5;
 		return [x, y];
 	}
 }
@@ -104,15 +111,25 @@ function Bullet_Round_n(start_x, start_y, start_frame, radius, pathf){
 	this.hit = function(jiki_x, jiki_y, jiki_r){
 		// 判断是否射中自机，输入自机的x、y、半径
 		let dx = Math.abs(jiki_x - this.x);
-		if(dx < this.radius){
+		let mindcenter = jiki_r + this.radius;
+		if(dx < mindcenter){
 			// x间距小于半径
 			let dy = Math.abs(jiki_y - this.y);
-			if(dy < this.radius){
+			if(dy < mindcenter){
 				// y间距小于半径
-				return dx*dx + dy*dy < this.radius*this.radius;
+				return dx*dx + dy*dy < mindcenter*mindcenter;
 			}
 		}
 		return false;
+	}
+	this.get_img = function(){
+		return {
+			'img': img_bullet_round_n_1,
+			'cx': this.radius,
+			'cy': this.radius,
+			'width': this.radius * 2,
+			'height': this.radius * 2,
+		};
 	}
 
 }
@@ -126,6 +143,16 @@ function Jiki(){
 	this.speed = 15 * scala;
 	this.slow_speed = 5 * scala;
 
+	this.get_img = function(){
+		return {
+			'img': img_judging_radius_1,
+			'cx': this.judging_radius,
+			// cx: the x-coordinate of image center
+			'cy': this.judging_radius,
+			'width': this.judging_radius * 2,
+			'height': this.judging_radius * 2,
+		};
+	}
 	this.move_x = function(dir, slow){
 		// x轴移动
 		if(slow){
@@ -182,7 +209,7 @@ function frame_draw(){
 	ctxm.clearRect(0, 0, canvas_width, canvas_height);
 
 	// 定时创造弹幕 
-	if((frames_total - 2000) % 2 === 0){
+	if(frames_total-200 >= 0 && frames_total%3 === 0){
 		let x = canvas_width * Math.random();
 		let y = canvas_height * 0.2;
 		let bullet = new Bullet_Round_n(x, y, frames_total, 20, rand_spe_straight_down(5+Math.random()*10, 5-Math.random()*10));
@@ -196,13 +223,22 @@ function frame_draw(){
 			// 屏幕外的弹幕置为null
 			dmk[ind] = null;
 		}else{
-			ctxm.beginPath();
-			ctxm.fillStyle = '#ff0';
-			ctxm.strokeStyle = '#000';
-			ctxm.arc(bullet.x, bullet.y, bullet.radius, 0, 2*Math.PI);
-			ctxm.closePath();
-			ctxm.fill();
-			ctxm.stroke();
+			// old 画弹幕
+			// ctxm.beginPath();
+			// ctxm.fillStyle = '#ff0';
+			// ctxm.strokeStyle = '#000';
+			// ctxm.arc(bullet.x, bullet.y, bullet.radius, 0, 2*Math.PI);
+			// ctxm.closePath();
+			// ctxm.fill();
+			// ctxm.stroke();
+
+			// new 画弹幕
+			const img_bullet = bullet.get_img();
+			ctxm.drawImage(img_bullet.img, 
+				bullet.x - img_bullet.cx, 
+				bullet.y - img_bullet.cy, 
+				img_bullet.width, 
+				img_bullet.height);
 
 			// 判断中弹
 			if(bullet.hit(jiki.x, jiki.y, jiki.judging_radius)){
@@ -220,15 +256,23 @@ function frame_draw(){
 
 
 
-	// 画自机
-	ctxm.beginPath();
-	ctxm.fillStyle = '#E00';
-	ctxm.strokeStyle = '#EE2';
-	ctxm.arc(jiki.x, jiki.y, jiki.judging_radius, 0, 2*Math.PI);
-	ctxm.closePath();
-	ctxm.fill();
-	ctxm.stroke();
+	// old 画自机
+	// ctxm.beginPath();
+	// ctxm.fillStyle = '#000';
+	// ctxm.strokeStyle = '#EE2';
+	// ctxm.arc(jiki.x, jiki.y, 1, 0, 2*Math.PI);
+	// ctxm.closePath();
+	// ctxm.fill();
+	// ctxm.stroke();
 
+	// new 画自机
+	const img_jiki = jiki.get_img();
+	ctxm.drawImage(img_jiki.img, 
+		jiki.x - img_jiki.cx, 
+		jiki.y - img_jiki.cy, 
+		img_jiki.width, 
+		img_jiki.height);
+	
 	// 算fps
 	frames_count++;
 	let cur_fra_ts = Date.now(); // current frame time stamp
