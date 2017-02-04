@@ -10,7 +10,6 @@
 // v y
 //
 
-
 // DOM操作
 const div_content = document.getElementsByClassName('content')[0];
 const canvas_height = Math.round(div_content.offsetHeight * 0.9);
@@ -68,31 +67,56 @@ img_judging_radius_1.src = './img/jiki/judging_radius_1.png';
 
 const img_bullet_round_n_1 = new Image();
 img_bullet_round_n_1.src = './img/danmaku/bullet_round_n_1.png';
-
+const img_enm_n_1 = new Image();
+img_enm_n_1.src = './img/enemies/e1.png';
 
 // 弹幕列表
 let danmaku = [];
 
+// 敌机列表
+// 还未出场的敌机
+let enemy_base = [];
+// 在场上的敌机
+let enemies = [];
+
+// 几个path函数
 function straight_down(frame){
 	let speed = 10;
 	let x = 0;
-	let y = frame * speed;
+	let y = frame * speed * scala;
 	return [x, y];
 }
 
 function rand_spe_straight_down(speed_y, speed_x){
 	return function(frame){
-		let x = frame * speed_x * 0.5;
-		let y = frame * speed_y * 0.5;
+		let x = frame * speed_x * 0.5 * scala;
+		let y = frame * speed_y * 0.5 * scala;
 		return [x, y];
 	}
 }
 
+function round_to_cent_1(frame){
+	let cx = canvas_width / 2;
+	let cy = canvas_height * 0.2;
+	let dx = -Math.cos(frame/200) * cx - Math.exp(-frame/100)*cx;
+	let dy = -Math.sin(frame/200) * 0.7 * cy;
+	return [dx, dy];
+}
 
+function ray(start_x, start_y, end_x, end_y, v){
+	let l = Math.sqrt((start_x-end_x)*(start_x-end_x) + (start_y-end_y)*(start_y-end_y));
+	let t = l / (v * scala);
+	return function(frame){
+		let x = start_x * (1-frame/t) + end_x * (frame/t);
+		let y = start_y * (1-frame/t) + end_y * (frame/t);
+		return [x, y];
+	}
+}
+// 子弹 
 function Bullet_Round_n(start_x, start_y, start_frame, radius, pathf){
 	// 圆形固定弹，初始位置x、y，从第几帧开始出现，半径，路径函数
-	this.x = start_x;
-	this.y = start_y;
+	this.x = start_x | 0;
+	this.y = start_y | 0;
 	this.radius = scala * radius;
 	this.get_posi = function(frame){
 		// 获取目前的位置
@@ -101,8 +125,8 @@ function Bullet_Round_n(start_x, start_y, start_frame, radius, pathf){
 		}else{
 			let dx, dy;
 			[dx, dy] = pathf(frame - start_frame);
-			this.x = start_x + scala*dx;
-			this.y = start_y + scala*dy;
+			this.x = start_x + dx;
+			this.y = start_y + dy;
 			return [this.x, this.y];
 		}
 	}
@@ -137,6 +161,47 @@ function Bullet_Round_n(start_x, start_y, start_frame, radius, pathf){
 		};
 	}
 
+}
+
+// 敌机
+function Enemy_n_1(start_x, start_y, start_frame, pathf){
+	this.x = start_x;
+	this.y = start_y;
+	this.maxhp = 100;
+	this.hp = this.maxhp;
+	this.size = 80;
+
+	this.start_frame = start_frame;
+	this.is_shot = function(){
+		// 判断是否被射中
+	}
+	this.get_posi = function(frame){
+		// 获取目前的位置
+		if(frame < start_frame){
+			return false;
+		}else{
+			let dx, dy;
+			[dx, dy] = pathf(frame - start_frame);
+			this.x = start_x + scala*dx;
+			this.y = start_y + scala*dy;
+			return [this.x, this.y];
+		}
+	}
+	this.get_img = function(){
+		return {
+			'img': img_enm_n_1,
+			'cx': this.size/2,
+			'cy': this.size/2,
+			'width': this.size,
+			'height': this.size,
+		};
+	}
+	this.shoot_jikinerai = function(target_x, target_y, start_frame, bullet_type){
+		// 自機狙い弾
+		let bullet = new Bullet_Round_n(0, 0, start_frame, 15, ray(this.x, this.y, jiki.x, jiki.y, 15));
+		danmaku.push(bullet);
+
+	}
 }
 
 function Jiki(){
@@ -217,8 +282,35 @@ function frame_draw(){
 	
 	ctxm.clearRect(0, 0, canvas_width, canvas_height);
 
+	// 刷新敌机位置
+	if(frames_total === 300){
+		enemies.push(new Enemy_n_1(canvas_width / 2, canvas_height * 0.2, 300, round_to_cent_1));
+	}
+	enemies.forEach(enemy=>{
+		enemy.get_posi(frames_total);
+		const img_enemy = enemy.get_img();
+		// 画敌机
+		ctxm.drawImage(img_enemy.img, 
+				enemy.x - img_enemy.cx, 
+				enemy.y - img_enemy.cy, 
+				img_enemy.width, 
+				img_enemy.height);
+
+		// 敌机定时发射自机狙弹幕
+		if(frames_total % 50 < 10){
+			enemy.shoot_jikinerai(jiki.x, jiki.y, frames_total, Bullet_Round_n);
+			
+			// 敌机到自机的辅助线
+			// ctxm.beginPath();
+			// ctxm.moveTo(enemy.x, enemy.y);
+			// ctxm.lineTo(jiki.x, jiki.y);
+			// ctxm.stroke();
+			// ctxm.closePath();
+		}
+	});
+
 	// 定时创造弹幕 
-	if(frames_total-200 >= 0 && frames_total%3 === 0){
+	if(frames_total-200 >= 0 && frames_total%4 === 0){
 		let x = canvas_width * Math.random();
 		let y = canvas_height * 0.2;
 		let bullet = new Bullet_Round_n(x, y, frames_total, 20, rand_spe_straight_down(5+Math.random()*10, 5-Math.random()*10));
@@ -292,6 +384,8 @@ function frame_draw(){
 		fps_dis.innerHTML = fps.toFixed(2);
 		prev_fra_ts = cur_fra_ts;
 		frames_count = 0;
+
+		// console.log(danmaku);
 	}
 }
 
