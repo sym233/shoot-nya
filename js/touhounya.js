@@ -27,21 +27,26 @@ const scala = canvas_height / ori_pix;
 // 按键操作
 
 
-const keys_status = {
-	'ArrowUp': false,
-	'ArrowDown': false,
-	'ArrowLeft': false,
-	'ArrowRight': false,
-	'Shift': false,
+const keys_map = {
+	// 按键映射
+	'ArrowUp': 0,
+	'ArrowDown': 1,
+	'ArrowLeft': 2,
+	'ArrowRight': 3,
+	'Shift': 4,
 }
+const keys_status = Array.of(5).fill(false);
+// 按键状态，false为未按下
+// [up, down , left, right, slow]
+
 function key_down_fn(ev){
-	if(ev.key in keys_status){
-		keys_status[ev.key] = true;
+	if(ev.key in keys_map){
+		keys_status[keys_map[ev.key]] = true;
 	}
 }
 function key_up_fn(ev){
-	if(ev.key in keys_status){
-		keys_status[ev.key] = false;
+	if(ev.key in keys_map){
+		keys_status[keys_map[ev.key]] = false;
 	}
 }
 const body = document.body;
@@ -193,17 +198,21 @@ function frame_draw(){
 	frames_total++;
 
 	// 判断按键，刷新自机位置
-	if(keys_status['ArrowUp']){
-		jiki.move_y(-1, keys_status['Shift']);
+	if(keys_status[0]){
+		// up
+		jiki.move_y(-1, keys_status[4]);
 	}
-	if(keys_status['ArrowDown']){
-		jiki.move_y(1, keys_status['Shift']);
+	if(keys_status[1]){
+		// down
+		jiki.move_y(1, keys_status[4]);
 	}
-	if(keys_status['ArrowLeft']){
-		jiki.move_x(-1, keys_status['Shift']);
+	if(keys_status[2]){
+		// left
+		jiki.move_x(-1, keys_status[4]);
 	}
-	if(keys_status['ArrowRight']){
-		jiki.move_x(1, keys_status['Shift']);
+	if(keys_status[3]){
+		// right
+		jiki.move_x(1, keys_status[4]);
 	}
 	
 	ctxm.clearRect(0, 0, canvas_width, canvas_height);
@@ -288,4 +297,4 @@ function frame_draw(){
 
 const set_fps = 60;
 
-let main_interval = window.setInterval(frame_draw, Math.round(1000 / set_fps));
+let main_interval = window.setInterval(frame_draw, 1000 / set_fps);
