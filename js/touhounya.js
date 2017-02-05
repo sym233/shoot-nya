@@ -32,20 +32,21 @@ const keys_map = {
 	'ArrowDown': 1,
 	'ArrowLeft': 2,
 	'ArrowRight': 3,
-	'Shift': 4,
+	'ShiftLeft': 4,
+	'KeyZ': 5,
 }
-const keys_status = Array.of(5).fill(false);
+const keys_status = Array.of(6).fill(false);
 // 按键状态，false为未按下
-// [up, down , left, right, slow]
+// [up, down , left, right, slow, shoot]
 
 function key_down_fn(ev){
-	if(ev.key in keys_map){
-		keys_status[keys_map[ev.key]] = true;
+	if(ev.code in keys_map){
+		keys_status[keys_map[ev.code]] = true;
 	}
 }
 function key_up_fn(ev){
-	if(ev.key in keys_map){
-		keys_status[keys_map[ev.key]] = false;
+	if(ev.code in keys_map){
+		keys_status[keys_map[ev.code]] = false;
 	}
 }
 const body = document.body;
@@ -70,8 +71,13 @@ img_bullet_round_n_1.src = './img/danmaku/bullet_round_n_1.png';
 const img_enm_n_1 = new Image();
 img_enm_n_1.src = './img/enemies/e1.png';
 
-// 弹幕列表
+const img_jiki_bullet_1 = new Image();
+img_jiki_bullet_1.src = './img/jiki/bullet/b1.png';
+
+// 敌机弹幕列表
 let danmaku = [];
+// 自机弹幕列表
+let jiki_dmk = [];
 
 // 敌机列表
 // 还未出场的敌机
@@ -84,6 +90,13 @@ function straight_down(frame){
 	let speed = 10;
 	let x = 0;
 	let y = frame * speed * scala;
+	return [x, y];
+}
+
+function straight_up(frame){
+	let speed = 20;
+	let x = 0;
+	let y = -frame * speed * scala;
 	return [x, y];
 }
 
@@ -112,12 +125,17 @@ function ray(start_x, start_y, end_x, end_y, v){
 		return [x, y];
 	}
 }
+
 // 子弹 
 function Bullet_Round_n(start_x, start_y, start_frame, radius, pathf){
 	// 圆形固定弹，初始位置x、y，从第几帧开始出现，半径，路径函数
 	this.x = start_x | 0;
 	this.y = start_y | 0;
 	this.radius = scala * radius;
+
+	this.remove = false;
+	// remove为true时该子弹会被移除
+
 	this.get_posi = function(frame){
 		// 获取目前的位置
 		if(frame < start_frame){
@@ -127,15 +145,21 @@ function Bullet_Round_n(start_x, start_y, start_frame, radius, pathf){
 			[dx, dy] = pathf(frame - start_frame);
 			this.x = start_x + dx;
 			this.y = start_y + dy;
-			return [this.x, this.y];
+
+			if(this.is_out() === false){
+				return [this.x, this.y];
+			}else{
+				return false;
+			}
 		}
 	}
 	this.is_out = function(){
 		// 子弹是否在屏幕外
-		return 0 - this.x > this.radius 
+		this.remove =  0 - this.x > this.radius 
 			|| this.x - canvas_width > this.radius 
 			|| 0 - this.y > this.radius
 			|| this.y - canvas_height > this.radius;
+		return this.remove;
 	}
 	this.hit = function(jiki_x, jiki_y, jiki_r){
 		// 判断是否射中自机，输入自机的x、y、半径
@@ -160,7 +184,50 @@ function Bullet_Round_n(start_x, start_y, start_frame, radius, pathf){
 			'height': this.radius * 2,
 		};
 	}
+}
 
+function Jiki_Bullet_1(start_x, start_y, start_frame, width, pathf){
+	this.x = start_x;
+	this.y = start_y;
+	this.width = width * scala;
+	this.height = width / 5 * 30 * scala;
+	this.judging_height = width / 5 * 16 * scala;
+	this.remove = false;
+	this.get_posi = function(frame){
+		// 获取目前的位置
+		if(frame < start_frame){
+			return false;
+		}else{
+			let dx, dy;
+			[dx, dy] = pathf(frame - start_frame);
+			this.x = start_x + dx;
+			this.y = start_y + dy;
+
+			if(this.is_out() === false){
+				return [this.x, this.y];
+			}else{
+				return false;
+			}
+		}
+	}
+	this.is_out = function(){
+		// 子弹是否在屏幕外
+		this.remove =  0 - this.x > this.width 
+			|| this.x - canvas_width > this.width 
+			|| 0 - this.y > this.height
+			|| this.y - canvas_height > this.height;
+		return this.remove;
+	}
+
+	this.get_img = function(){
+		return {
+			'img': img_jiki_bullet_1,
+			'cx': this.width / 2,
+			'cy': this.judging_height / 2,
+			'width': this.width,
+			'height': this.height,
+		};
+	}
 }
 
 // 敌机
@@ -212,6 +279,7 @@ function Jiki(){
 	this.judging_radius = 10 * scala;
 	this.speed = 15 * scala;
 	this.slow_speed = 5 * scala;
+	this.size = 40 * scala;
 
 	this.get_img = function(){
 		return {
@@ -253,6 +321,16 @@ function Jiki(){
 			}
 		}
 	}
+
+	this.last_shot = 0;
+	this.shoot = function(frame){
+		if(frame - this.last_shot >= 10){
+			this.last_shot = frame;
+			jiki_dmk.push(
+				new Jiki_Bullet_1(this.x-0.2*this.size, this.y-this.size, frame, 0.25*this.size, straight_up),
+				new Jiki_Bullet_1(this.x+0.2*this.size, this.y-this.size, frame, 0.25*this.size, straight_up));
+		}
+	}
 }
 
 let jiki = new Jiki();
@@ -278,6 +356,9 @@ function frame_draw(){
 	if(keys_status[3]){
 		// right
 		jiki.move_x(1, keys_status[4]);
+	}
+	if(keys_status[5]){
+		jiki.shoot(frames_total);
 	}
 	
 	ctxm.clearRect(0, 0, canvas_width, canvas_height);
@@ -317,13 +398,10 @@ function frame_draw(){
 		danmaku.push(bullet);
 	}
 
-	danmaku.forEach((bullet, ind, dmk)=>{
+	danmaku.forEach(bullet=>{
 		// 刷新弹幕位置，并绘制弹幕
 		bullet.get_posi(frames_total);
-		if(bullet.is_out()){
-			// 屏幕外的弹幕置为null
-			dmk[ind] = null;
-		}else{
+		if(bullet.remove === false){
 			// old 画弹幕
 			// ctxm.beginPath();
 			// ctxm.fillStyle = '#ff0';
@@ -347,15 +425,31 @@ function frame_draw(){
 				se_biu.play();
 
 				// 击中后删除该弹
-				dmk[ind] = null;
+				bullet.remove = true;
 			}
 		}
 
 	});
-	danmaku = danmaku.filter(bullet=>(bullet!== null));
+	danmaku = danmaku.filter(bullet=>(bullet.remove === false));
 	// 删除置为null的弹幕
 
+	jiki_dmk.forEach(bullet=>{
+		// 同理，刷新自机弹幕位置，并绘制弹幕
+		bullet.get_posi(frames_total);
+		if(bullet.remove === false){
 
+			// new 画弹幕
+			const img_bullet = bullet.get_img();
+			ctxm.drawImage(img_bullet.img, 
+				bullet.x - img_bullet.cx, 
+				bullet.y - img_bullet.cy, 
+				img_bullet.width, 
+				img_bullet.height);
+
+		}
+
+	});
+	danmaku = danmaku.filter(bullet=>(bullet.remove === false));
 
 	// old 画自机
 	// ctxm.beginPath();
