@@ -10,6 +10,19 @@
 // v y
 //
 
+try{
+	let a = 1;
+	const b = x => x;
+	let c = 2;
+	[a, c] = [c, a];
+	Array.from({length:7}).fill(1).filter(x=>x);
+}
+catch(e){
+	document.write('你的浏览器不支持es6，请更新或更换浏览器');
+	throw '错误:你的浏览器不支持es6，请更新或更换浏览器';
+}
+
+
 // DOM操作
 const div_content = document.getElementsByClassName('content')[0];
 const canvas_height = Math.round(div_content.offsetHeight * 0.9);
@@ -149,17 +162,17 @@ function Bullet_Round_n(start_x, start_y, start_frame, radius, pathf){
 			if(this.is_out() === false){
 				return [this.x, this.y];
 			}else{
+				this.remove = true;
 				return false;
 			}
 		}
 	}
 	this.is_out = function(){
 		// 子弹是否在屏幕外
-		this.remove =  0 - this.x > this.radius 
+		return 0 - this.x > this.radius 
 			|| this.x - canvas_width > this.radius 
 			|| 0 - this.y > this.radius
 			|| this.y - canvas_height > this.radius;
-		return this.remove;
 	}
 	this.hit = function(jiki_x, jiki_y, jiki_r){
 		// 判断是否射中自机，输入自机的x、y、半径
@@ -191,8 +204,9 @@ function Jiki_Bullet_1(start_x, start_y, start_frame, width, pathf){
 	this.y = start_y;
 	this.width = width * scala;
 	this.height = width / 5 * 30 * scala;
-	this.judging_height = width / 5 * 16 * scala;
 	this.remove = false;
+	this.damage = 2;
+	// 击中的伤害
 	this.get_posi = function(frame){
 		// 获取目前的位置
 		if(frame < start_frame){
@@ -206,24 +220,24 @@ function Jiki_Bullet_1(start_x, start_y, start_frame, width, pathf){
 			if(this.is_out() === false){
 				return [this.x, this.y];
 			}else{
+				this.remove = true;
 				return false;
 			}
 		}
 	}
 	this.is_out = function(){
-		// 子弹是否在屏幕外
-		this.remove =  0 - this.x > this.width 
+		// 子弹是否在屏幕外 
+		return 0 - this.x > this.width 
 			|| this.x - canvas_width > this.width 
 			|| 0 - this.y > this.height
 			|| this.y - canvas_height > this.height;
-		return this.remove;
 	}
 
 	this.get_img = function(){
 		return {
 			'img': img_jiki_bullet_1,
 			'cx': this.width / 2,
-			'cy': this.judging_height / 2,
+			'cy': 0,
 			'width': this.width,
 			'height': this.height,
 		};
@@ -234,13 +248,32 @@ function Jiki_Bullet_1(start_x, start_y, start_frame, width, pathf){
 function Enemy_n_1(start_x, start_y, start_frame, pathf){
 	this.x = start_x;
 	this.y = start_y;
-	this.maxhp = 100;
+	this.maxhp = 1000;
 	this.hp = this.maxhp;
+	this.show_hp = true;
+	// show_hp为true时，显示血条（圈
 	this.size = 80;
 
+	this.remove = false;
+
 	this.start_frame = start_frame;
+	this.hurt = function(points){
+		this.hp -= points;
+		if(this.hp <= 0){
+			this.hp = 0;
+			this.remove = true;
+		}
+	}
 	this.is_shot = function(){
 		// 判断是否被射中
+		jiki_dmk.forEach(bullet=>{
+			if(Math.abs(bullet.x-this.x) < this.size/2 + bullet.width/2){
+				if(Math.abs(bullet.y-this.y) < this.size/2){
+					this.hurt(bullet.damage);
+					bullet.remove = true;
+				}
+			}
+		});
 	}
 	this.get_posi = function(frame){
 		// 获取目前的位置
@@ -327,8 +360,8 @@ function Jiki(){
 		if(frame - this.last_shot >= 10){
 			this.last_shot = frame;
 			jiki_dmk.push(
-				new Jiki_Bullet_1(this.x-0.2*this.size, this.y-this.size, frame, 0.25*this.size, straight_up),
-				new Jiki_Bullet_1(this.x+0.2*this.size, this.y-this.size, frame, 0.25*this.size, straight_up));
+				new Jiki_Bullet_1(this.x-0.2*this.size, this.y-this.size, frame, 0.4*this.size, straight_up),
+				new Jiki_Bullet_1(this.x+0.2*this.size, this.y-this.size, frame, 0.4*this.size, straight_up));
 		}
 	}
 }
@@ -388,7 +421,21 @@ function frame_draw(){
 			// ctxm.stroke();
 			// ctxm.closePath();
 		}
+		// 是否被击中
+		enemy.is_shot();
+
+		if(enemy.show_hp){
+			// 画hp圈
+			ctxm.strokeStyle = 'rgba(230, 72, 72, 0.7';
+			ctxm.lineWidth = 15 * scala;
+			ctxm.beginPath();
+			ctxm.arc(enemy.x, enemy.y, enemy.size*0.7, -Math.PI/2, -2*Math.PI*enemy.hp/enemy.maxhp-Math.PI/2, true);
+			ctxm.stroke();
+			ctxm.closePath();
+		}
 	});
+
+	enemies = enemies.filter(enemy=>(enemy.remove===false));
 
 	// 定时创造弹幕 
 	if(frames_total-200 >= 0 && frames_total%4 === 0){
@@ -449,7 +496,7 @@ function frame_draw(){
 		}
 
 	});
-	danmaku = danmaku.filter(bullet=>(bullet.remove === false));
+	jiki_dmk = jiki_dmk.filter(bullet=>(bullet.remove === false));
 
 	// old 画自机
 	// ctxm.beginPath();
