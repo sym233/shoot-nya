@@ -16,6 +16,16 @@ try{
 	let c = 2;
 	[a, c] = [c, a];
 	Array.from({length:7}).fill(1).filter(x=>x);
+	class A{
+		constructor(){
+		}
+	}
+	class B extends A{
+		constructor(){
+			super();
+		}
+	}
+	a = new A();
 }
 catch(e){
 	document.write('你的浏览器不支持es6，请更新或更换浏览器');
@@ -113,7 +123,7 @@ function straight_up(frame){
 	return [x, y];
 }
 
-function rand_spe_straight_down(speed_y, speed_x){
+function rand_spe_straight_down(speed_x, speed_y){
 	return function(frame){
 		let x = frame * speed_x * 0.5 * scala;
 		let y = frame * speed_y * 0.5 * scala;
@@ -140,24 +150,87 @@ function ray(start_x, start_y, end_x, end_y, v){
 }
 
 // 子弹 
-function Bullet_Round_n(start_x, start_y, start_frame, radius, pathf){
-	// 圆形固定弹，初始位置x、y，从第几帧开始出现，半径，路径函数
-	this.x = start_x | 0;
-	this.y = start_y | 0;
-	this.radius = scala * radius;
+// function Bullet_Round_n(start_x, start_y, start_frame, radius, pathf){
+// 	// 圆形固定弹，初始位置x、y，从第几帧开始出现，半径，路径函数
+// 	this.x = start_x | 0;
+// 	this.y = start_y | 0;
+// 	this.radius = scala * radius;
+// 	this.remove = false;
+// 	// remove为true时该子弹会被移除
 
-	this.remove = false;
-	// remove为true时该子弹会被移除
+// 	this.get_posi = function(frame){
+// 		// 获取目前的位置
+// 		if(frame < start_frame){
+// 			return false;
+// 		}else{
+// 			let dx, dy;
+// 			[dx, dy] = pathf(frame - start_frame);
+// 			this.x = start_x + dx;
+// 			this.y = start_y + dy;
 
-	this.get_posi = function(frame){
+// 			if(this.is_out() === false){
+// 				return [this.x, this.y];
+// 			}else{
+// 				this.remove = true;
+// 				return false;
+// 			}
+// 		}
+// 	}
+// 	this.is_out = function(){
+// 		// 子弹是否在屏幕外
+// 		return 0 - this.x > this.radius 
+// 			|| this.x - canvas_width > this.radius 
+// 			|| 0 - this.y > this.radius
+// 			|| this.y - canvas_height > this.radius;
+// 	}
+// 	this.hit = function(jiki_x, jiki_y, jiki_r){
+// 		// 判断是否射中自机，输入自机的x、y、半径
+// 		let dx = Math.abs(jiki_x - this.x);
+// 		let min_d_center = jiki_r + this.radius;
+// 		if(dx < min_d_center){
+// 			// x间距小于半径
+// 			let dy = Math.abs(jiki_y - this.y);
+// 			if(dy < min_d_center){
+// 				// y间距小于半径
+// 				return dx*dx + dy*dy < min_d_center*min_d_center;
+// 			}
+// 		}
+// 		return false;
+// 	}
+// 	this.get_img = function(){
+// 		return {
+// 			'img': img_bullet_round_n_1,
+// 			'cx': this.radius,
+// 			'cy': this.radius,
+// 			'width': this.radius * 2,
+// 			'height': this.radius * 2,
+// 		};
+// 	}
+// }
+
+class Bullet_Round_n{
+	// 用class改写
+	constructor(start_x, start_y, start_frame, radius, pathf){
+		// 圆形固定弹，初始位置x、y，从第几帧开始出现，半径，路径函数
+		this.x = this.start_x = start_x;
+		this.y = this.start_y = start_y;
+		this.start_frame = start_frame;
+		this.radius = scala * radius;
+		this.pathf = pathf;
+
+		this.remove = false;
+		this.img = img_bullet_round_n_1;
+		// remove为true时该子弹会被移除
+	}
+	get_posi(frame){
 		// 获取目前的位置
-		if(frame < start_frame){
+		if(frame < this.start_frame){
 			return false;
 		}else{
 			let dx, dy;
-			[dx, dy] = pathf(frame - start_frame);
-			this.x = start_x + dx;
-			this.y = start_y + dy;
+			[dx, dy] = this.pathf(frame - this.start_frame);
+			this.x = this.start_x + dx;
+			this.y = this.start_y + dy;
 
 			if(this.is_out() === false){
 				return [this.x, this.y];
@@ -167,30 +240,30 @@ function Bullet_Round_n(start_x, start_y, start_frame, radius, pathf){
 			}
 		}
 	}
-	this.is_out = function(){
+	is_out(){
 		// 子弹是否在屏幕外
 		return 0 - this.x > this.radius 
 			|| this.x - canvas_width > this.radius 
 			|| 0 - this.y > this.radius
 			|| this.y - canvas_height > this.radius;
 	}
-	this.hit = function(jiki_x, jiki_y, jiki_r){
+	hit(jiki_x, jiki_y, jiki_r){
 		// 判断是否射中自机，输入自机的x、y、半径
 		let dx = Math.abs(jiki_x - this.x);
-		let mindcenter = jiki_r + this.radius;
-		if(dx < mindcenter){
+		let min_d_center = jiki_r + this.radius;
+		if(dx < min_d_center){
 			// x间距小于半径
 			let dy = Math.abs(jiki_y - this.y);
-			if(dy < mindcenter){
+			if(dy < min_d_center){
 				// y间距小于半径
-				return dx*dx + dy*dy < mindcenter*mindcenter;
+				return dx*dx + dy*dy < min_d_center*min_d_center;
 			}
 		}
 		return false;
 	}
-	this.get_img = function(){
+	get_img(){
 		return {
-			'img': img_bullet_round_n_1,
+			'img': this.img,
 			'cx': this.radius,
 			'cy': this.radius,
 			'width': this.radius * 2,
@@ -441,7 +514,7 @@ function frame_draw(){
 	if(frames_total-200 >= 0 && frames_total%4 === 0){
 		let x = canvas_width * Math.random();
 		let y = canvas_height * 0.2;
-		let bullet = new Bullet_Round_n(x, y, frames_total, 20, rand_spe_straight_down(5+Math.random()*10, 5-Math.random()*10));
+		let bullet = new Bullet_Round_n(x, y, frames_total, 20, rand_spe_straight_down(5-Math.random()*10, 5+Math.random()*10));
 		danmaku.push(bullet);
 	}
 
