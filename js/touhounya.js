@@ -110,29 +110,20 @@ let enemy_base = [];
 let enemies = [];
 
 // 几个path函数
-function straight_down(frame){
-	let speed = 10;
-	let x = 0;
-	let y = frame * speed * scala;
-	return [x, y];
-}
 
-function straight_up(frame){
-	let speed = 20;
-	let x = 0;
-	let y = -frame * speed * scala;
-	return [x, y];
-}
-
-function rand_spe_straight_down(speed_x, speed_y){
+function straight_line(speed_x, speed_y){
+	// 给出x、y速度的直线运动
+	// 相对坐标
 	return function(frame){
-		let x = frame * speed_x * 0.5 * scala;
-		let y = frame * speed_y * 0.5 * scala;
+		let x = frame * speed_x * scala;
+		let y = frame * speed_y * scala;
 		return [x, y];
 	}
 }
 
 function round_to_cent_1(frame){
+	// 敌机的轨迹，渐进的椭圆形
+	// 相对坐标
 	let cx = canvas_width / 2;
 	let cy = canvas_height * 0.2;
 	let dx = -Math.cos(frame/200) * cx - Math.exp(-frame/100)*cx;
@@ -141,6 +132,8 @@ function round_to_cent_1(frame){
 }
 
 function ray(start_x, start_y, end_x, end_y, v){
+	// 根据起始点和终点确定直线轨迹
+	// 绝对坐标
 	let l = Math.sqrt((start_x-end_x)*(start_x-end_x) + (start_y-end_y)*(start_y-end_y));
 	let t = l / (v * scala);
 	return function(frame){
@@ -231,43 +224,16 @@ class Bullet_Round_n extends Bullet{
 	}
 }
 
-function Jiki_Bullet_1(start_x, start_y, start_frame, width, pathf){
-	this.x = start_x;
-	this.y = start_y;
-	this.width = width * scala;
-	this.height = width / 5 * 30 * scala;
-	this.remove = false;
-	this.damage = 2;
-	// 击中的伤害
-	this.get_posi = function(frame){
-		// 获取目前的位置
-		if(frame < start_frame){
-			return false;
-		}else{
-			let dx, dy;
-			[dx, dy] = pathf(frame - start_frame);
-			this.x = start_x + dx;
-			this.y = start_y + dy;
+class Jiki_Bullet_1 extends Bullet{
+	constructor(start_x, start_y, start_frame, width, pathf, img){
+		super(start_x, start_y, start_frame, width, width / 5 * 30, pathf, img);
 
-			if(this.is_out() === false){
-				return [this.x, this.y];
-			}else{
-				this.remove = true;
-				return false;
-			}
-		}
-	}
-	this.is_out = function(){
-		// 子弹是否在屏幕外 
-		return 0 - this.x > this.width 
-			|| this.x - canvas_width > this.width 
-			|| 0 - this.y > this.height
-			|| this.y - canvas_height > this.height;
+		this.damage = 2;
 	}
 
-	this.get_img = function(){
+	get_img(){
 		return {
-			'img': img_jiki_bullet_1,
+			'img': this.img,
 			'cx': this.width / 2,
 			'cy': 0,
 			'width': this.width,
@@ -277,76 +243,95 @@ function Jiki_Bullet_1(start_x, start_y, start_frame, width, pathf){
 }
 
 // 敌机
-function Enemy_n_1(start_x, start_y, start_frame, pathf){
-	this.x = start_x;
-	this.y = start_y;
-	this.maxhp = 1000;
-	this.hp = this.maxhp;
-	this.show_hp = true;
-	// show_hp为true时，显示血条（圈
-	this.size = 80;
+class Enemy{
+	constructor(start_x, start_y, start_frame, width, height, maxhp, pathf, img){
+		this.x = this.start_x = start_x;
+		this.y = this.start_y = start_y;
+		this.start_frame = start_frame;
+		this.width = width * scala;
+		this.height = height * scala;
+		this.pathf = pathf;
+		this.img = img;
 
-	this.remove = false;
+		this.maxhp = this.hp = maxhp
+		this.remove = false;
+	}
 
-	this.start_frame = start_frame;
-	this.hurt = function(points){
+	hurt(points){
+		// 受到攻击
 		this.hp -= points;
 		if(this.hp <= 0){
 			this.hp = 0;
 			this.remove = true;
 		}
 	}
-	this.is_shot = function(){
+
+	get_posi(frame){
+		// 获取目前的位置
+		if(frame < this.start_frame){
+			return false;
+		}else{
+			let dx, dy;
+			[dx, dy] = this.pathf(frame - this.start_frame);
+			this.x = this.start_x + scala * dx;
+			this.y = this.start_y + scala * dy;
+			return [this.x, this.y];
+		}
+	}
+
+	get_img(){
+		return {
+			'img': this.img,
+			'cx': this.width/2,
+			'cy': this.height/2,
+			'width': this.width,
+			'height': this.height,
+		};
+	}
+}
+
+class Enemy_n_1 extends Enemy{
+	constructor(start_x, start_y, start_frame, pathf){
+		super(start_x, start_y, start_frame, 180, 180, 1000, pathf, img_enm_n_1);
+
+		this.show_hp = true;
+     	// show_hp为true时，显示血条（圈
+	}
+
+	is_shot(){
 		// 判断是否被射中
 		jiki_dmk.forEach(bullet=>{
-			if(Math.abs(bullet.x-this.x) < this.size/2 + bullet.width/2){
-				if(Math.abs(bullet.y-this.y) < this.size/2){
+			if(Math.abs(bullet.x-this.x) < this.width/2 + bullet.width/2){
+				if(Math.abs(bullet.y-this.y) < this.height/2){
 					this.hurt(bullet.damage);
 					bullet.remove = true;
 				}
 			}
 		});
 	}
-	this.get_posi = function(frame){
-		// 获取目前的位置
-		if(frame < start_frame){
-			return false;
-		}else{
-			let dx, dy;
-			[dx, dy] = pathf(frame - start_frame);
-			this.x = start_x + scala*dx;
-			this.y = start_y + scala*dy;
-			return [this.x, this.y];
-		}
-	}
-	this.get_img = function(){
-		return {
-			'img': img_enm_n_1,
-			'cx': this.size/2,
-			'cy': this.size/2,
-			'width': this.size,
-			'height': this.size,
-		};
-	}
-	this.shoot_jikinerai = function(target_x, target_y, start_frame, bullet_type){
+
+	shoot_jikinerai(target_x, target_y, start_frame, bullet_type){
 		// 自機狙い弾
 		let bullet = new Bullet_Round_n(0, 0, start_frame, 15, ray(this.x, this.y, jiki.x, jiki.y, 15), img_bullet_round_n_1);
 		danmaku.push(bullet);
-
 	}
 }
 
-function Jiki(){
+class Jiki{
 	// 自机
-	this.x = Math.round(canvas_width / 2);
-	this.y = Math.round(canvas_height * 0.9);
+	constructor(){
+		this.x = Math.round(canvas_width / 2);
+		this.y = Math.round(canvas_height * 0.9);
 
-	this.judging_radius = 10 * scala;
-	this.speed = 15 * scala;
-	this.slow_speed = 5 * scala;
-	this.size = 40 * scala;
+		this.judging_radius = 10 * scala;
+		this.speed = 15 * scala;
+		this.slow_speed = 5 * scala;
+		this.size = 40 * scala;
 
-	this.get_img = function(){
+		this.last_shot = 0;
+	}
+
+	get_img(){
 		return {
 			'img': img_judging_radius_1,
 			'cx': this.judging_radius,
@@ -356,7 +341,8 @@ function Jiki(){
 			'height': this.judging_radius * 2,
 		};
 	}
-	this.move_x = function(dir, slow){
+
+	move_x(dir, slow){
 		// x轴移动
 		if(slow){
 			this.x += dir * this.slow_speed;
@@ -371,7 +357,8 @@ function Jiki(){
 			}
 		}
 	}
-	this.move_y = function(dir, slow){
+
+	move_y(dir, slow){
 		// y轴移动
 		if(slow){
 			this.y += dir * this.slow_speed;
@@ -387,13 +374,12 @@ function Jiki(){
 		}
 	}
 
-	this.last_shot = 0;
-	this.shoot = function(frame){
+	shoot(frame){
 		if(frame - this.last_shot >= 10){
 			this.last_shot = frame;
 			jiki_dmk.push(
-				new Jiki_Bullet_1(this.x-0.2*this.size, this.y-this.size, frame, 0.4*this.size, straight_up),
-				new Jiki_Bullet_1(this.x+0.2*this.size, this.y-this.size, frame, 0.4*this.size, straight_up));
+				new Jiki_Bullet_1(this.x-0.2*this.size, this.y-this.size, frame, 0.4*this.size, straight_line(0, -20), img_jiki_bullet_1),
+				new Jiki_Bullet_1(this.x+0.2*this.size, this.y-this.size, frame, 0.4*this.size, straight_line(0, -20), img_jiki_bullet_1));
 		}
 	}
 }
@@ -458,10 +444,10 @@ function frame_draw(){
 
 		if(enemy.show_hp){
 			// 画hp圈
-			ctxm.strokeStyle = 'rgba(230, 72, 72, 0.7';
+			ctxm.strokeStyle = 'rgba(230, 72, 72, 0.7)';
 			ctxm.lineWidth = 15 * scala;
 			ctxm.beginPath();
-			ctxm.arc(enemy.x, enemy.y, enemy.size*0.7, -Math.PI/2, -2*Math.PI*enemy.hp/enemy.maxhp-Math.PI/2, true);
+			ctxm.arc(enemy.x, enemy.y, enemy.width*0.7, -Math.PI/2, -2*Math.PI*enemy.hp/enemy.maxhp-Math.PI/2, true);
 			ctxm.stroke();
 			ctxm.closePath();
 		}
@@ -473,7 +459,7 @@ function frame_draw(){
 	if(frames_total-200 >= 0 && frames_total%4 === 0){
 		let x = canvas_width * Math.random();
 		let y = canvas_height * 0.2;
-		let bullet = new Bullet_Round_n(x, y, frames_total, 20, rand_spe_straight_down(5-Math.random()*10, 5+Math.random()*10), img_bullet_round_n_1);
+		let bullet = new Bullet_Round_n(x, y, frames_total, 20, straight_line(2.5-Math.random()*5, 2.5+Math.random()*5), img_bullet_round_n_1);
 		danmaku.push(bullet);
 	}
 
@@ -481,14 +467,6 @@ function frame_draw(){
 		// 刷新弹幕位置，并绘制弹幕
 		bullet.get_posi(frames_total);
 		if(bullet.remove === false){
-			// old 画弹幕
-			// ctxm.beginPath();
-			// ctxm.fillStyle = '#ff0';
-			// ctxm.strokeStyle = '#000';
-			// ctxm.arc(bullet.x, bullet.y, bullet.radius, 0, 2*Math.PI);
-			// ctxm.closePath();
-			// ctxm.fill();
-			// ctxm.stroke();
 
 			// new 画弹幕
 			const img_bullet = bullet.get_img();
@@ -529,15 +507,6 @@ function frame_draw(){
 
 	});
 	jiki_dmk = jiki_dmk.filter(bullet=>(bullet.remove === false));
-
-	// old 画自机
-	// ctxm.beginPath();
-	// ctxm.fillStyle = '#000';
-	// ctxm.strokeStyle = '#EE2';
-	// ctxm.arc(jiki.x, jiki.y, 1, 0, 2*Math.PI);
-	// ctxm.closePath();
-	// ctxm.fill();
-	// ctxm.stroke();
 
 	// new 画自机
 	const img_jiki = jiki.get_img();
