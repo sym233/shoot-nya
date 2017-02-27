@@ -11,6 +11,7 @@
 //
 
 try{
+	// 好像感觉这么try并不管用……
 	let a = 1;
 	const b = x => x;
 	let c = 2;
@@ -42,13 +43,16 @@ const canvas_main = document.getElementById('canvas-main');
 canvas_main.height = canvas_height;
 canvas_main.width = canvas_width;
 const fps_dis = document.getElementById('fps-display');
+const miss_dis = document.getElementById('miss-display');
+
+const hidden_div = document.getElementById('hidden-div');
+const cnvs_jiki_img = document.getElementById('cnvs_jiki_img');
 
 // 原始大小和缩放
 const ori_pix = 1400;
 const scala = canvas_height / ori_pix;
 
 // 按键操作
-
 
 const keys_map = {
 	// 按键映射
@@ -82,6 +86,7 @@ body.addEventListener('keyup', key_up_fn);
 
 // 初始化canvas
 const ctxm = canvas_main.getContext('2d');
+const ctx_jiki = cnvs_jiki_img.getContext('2d');
 
 // 载入音效
 const se_biu = new Audio('./se/se_pldead00.wav');
@@ -97,6 +102,9 @@ img_enm_n_1.src = './img/enemies/e1.png';
 
 const img_jiki_bullet_1 = new Image();
 img_jiki_bullet_1.src = './img/jiki/bullet/b1.png';
+
+const img_jiki_pusheen_1 = new Image();
+img_jiki_pusheen_1.src = './img/jiki/jiki_pusheen1.png';
 
 // 敌机弹幕列表
 let danmaku = [];
@@ -156,6 +164,8 @@ class Bullet{
 
 		this.remove = false;
 		// remove为true时该子弹会被移除
+		this.grazed = false;
+		// 是否被擦弹过
 	}
 	
 	get_img(){
@@ -217,6 +227,9 @@ class Bullet_Round_n extends Bullet{
 			let dy = Math.abs(jiki_y - this.y);
 			if(dy < min_d_center){
 				// y间距小于半径
+
+				jiki.misses ++;
+				// miss数+1
 				return dx*dx + dy*dy < min_d_center*min_d_center;
 			}
 		}
@@ -312,7 +325,14 @@ class Enemy_n_1 extends Enemy{
 
 	shoot_jikinerai(target_x, target_y, start_frame, bullet_type){
 		// 自機狙い弾
-		let bullet = new Bullet_Round_n(0, 0, start_frame, 15, ray(this.x, this.y, jiki.x, jiki.y, 15), img_bullet_round_n_1);
+		let bullet = new Bullet_Round_n(
+			0,
+			0,
+			start_frame,
+			15,
+			ray(this.x, this.y, jiki.x, jiki.y, 15),
+			img_bullet_round_n_1
+		);
 		danmaku.push(bullet);
 	}
 }
@@ -323,23 +343,52 @@ class Jiki{
 		this.x = Math.round(canvas_width / 2);
 		this.y = Math.round(canvas_height * 0.9);
 
-		this.judging_radius = 10 * scala;
+		this.judging_radius = 7 * scala;
 		this.speed = 15 * scala;
 		this.slow_speed = 5 * scala;
-		this.size = 40 * scala;
+
+		this.width = 100 * scala;
+		this.height = this.width / 124 * 150; 
 
 		this.last_shot = 0;
+
+		this.misses = 0;
+		// miss数
+		this.grazes = 0;
+		// 擦弹数
+
+		// 设置自机图形宽高
+		cnvs_jiki_img.width = this.width;
+		cnvs_jiki_img.height = this.height;
+
+		
+
 	}
 
-	get_img(){
+	get_img(slow){
+		// 自机贴图
+		ctx_jiki.drawImage(img_jiki_pusheen_1, 0, 0, this.width, this.height);
+
+		if(slow){
+			// 绘制判定点
+			ctx_jiki.drawImage(img_judging_radius_1,
+				this.width/2 - this.judging_radius,
+				this.height/2 - this.judging_radius,
+				this.judging_radius * 2,
+				this.judging_radius * 2
+			);
+		}else{
+
+		}
 		return {
-			'img': img_judging_radius_1,
-			'cx': this.judging_radius,
-			// cx: the x-coordinate of image center
-			'cy': this.judging_radius,
-			'width': this.judging_radius * 2,
-			'height': this.judging_radius * 2,
+		// cx: the x-coordinate of image center
+			'img': cnvs_jiki_img,
+			'cx': this.width / 2,
+			'cy': this.height / 2,
+			'width': this.width,
+			'height': this.height,
 		};
+		
 	}
 
 	move_x(dir, slow){
@@ -349,11 +398,11 @@ class Jiki{
 		}else{
 			this.x += dir * this.speed;
 		}
-		if(this.x > canvas_width){
-			this.x = canvas_width;
+		if(this.x > canvas_width - this.width / 2){
+			this.x = canvas_width - this.width / 2;
 		}else{
-			if(this.x < 0){
-				this.x = 0;
+			if(this.x < this.width / 2){
+				this.x = this.width / 2;
 			}
 		}
 	}
@@ -365,11 +414,11 @@ class Jiki{
 		}else{
 			this.y += dir * this.speed;
 		}
-		if(this.y > canvas_height){
-			this.y = canvas_height;
+		if(this.y > canvas_height - this.height / 2){
+			this.y = canvas_height - this.height / 2;
 		}else{
-			if(this.y < 0){
-				this.y = 0;
+			if(this.y < this.height / 2){
+				this.y = this.height / 2;
 			}
 		}
 	}
@@ -378,8 +427,23 @@ class Jiki{
 		if(frame - this.last_shot >= 10){
 			this.last_shot = frame;
 			jiki_dmk.push(
-				new Jiki_Bullet_1(this.x-0.2*this.size, this.y-this.size, frame, 0.4*this.size, straight_line(0, -20), img_jiki_bullet_1),
-				new Jiki_Bullet_1(this.x+0.2*this.size, this.y-this.size, frame, 0.4*this.size, straight_line(0, -20), img_jiki_bullet_1));
+				new Jiki_Bullet_1(
+					this.x - 0.2 * this.width,
+					this.y - this.height / 2,
+					frame,
+					0.2 * this.width,
+					straight_line(0, -20),
+					img_jiki_bullet_1
+				),
+				new Jiki_Bullet_1(
+					this.x + 0.2 * this.width,
+					this.y - this.height / 2,
+					frame,
+					0.2 * this.width,
+					straight_line(0, -20),
+					img_jiki_bullet_1
+				)
+			);
 		}
 	}
 }
@@ -409,6 +473,7 @@ function frame_draw(){
 		jiki.move_x(1, keys_status[4]);
 	}
 	if(keys_status[5]){
+		// shoot
 		jiki.shoot(frames_total);
 	}
 	
@@ -422,11 +487,13 @@ function frame_draw(){
 		enemy.get_posi(frames_total);
 		const img_enemy = enemy.get_img();
 		// 画敌机
-		ctxm.drawImage(img_enemy.img, 
-				enemy.x - img_enemy.cx, 
-				enemy.y - img_enemy.cy, 
-				img_enemy.width, 
-				img_enemy.height);
+		ctxm.drawImage(
+			img_enemy.img, 
+			enemy.x - img_enemy.cx, 
+			enemy.y - img_enemy.cy, 
+			img_enemy.width, 
+			img_enemy.height
+		);
 
 		// 敌机定时发射自机狙弹幕
 		if(frames_total % 50 < 10){
@@ -459,62 +526,75 @@ function frame_draw(){
 	if(frames_total-200 >= 0 && frames_total%4 === 0){
 		let x = canvas_width * Math.random();
 		let y = canvas_height * 0.2;
-		let bullet = new Bullet_Round_n(x, y, frames_total, 20, straight_line(2.5-Math.random()*5, 2.5+Math.random()*5), img_bullet_round_n_1);
+		let bullet = new Bullet_Round_n(
+			x,
+			y,
+			frames_total,
+			20,
+			straight_line(2.5 - Math.random() * 5, 2.5 + Math.random() * 5),
+			img_bullet_round_n_1
+		);
 		danmaku.push(bullet);
 	}
 
-	danmaku.forEach(bullet=>{
+	// new 画自机
+	const img_jiki = jiki.get_img(keys_status[4]);
+	ctxm.drawImage(img_jiki.img, 
+		jiki.x - img_jiki.cx, 
+		jiki.y - img_jiki.cy, 
+		img_jiki.width, 
+		img_jiki.height
+	);
+	miss_dis.innerHTML = jiki.misses;
+
+	danmaku = danmaku.filter(bullet=>{
+		// 将弹幕的foreach遍历和filter合并
 		// 刷新弹幕位置，并绘制弹幕
 		bullet.get_posi(frames_total);
 		if(bullet.remove === false){
 
 			// new 画弹幕
 			const img_bullet = bullet.get_img();
-			ctxm.drawImage(img_bullet.img, 
+			ctxm.drawImage(
+				img_bullet.img, 
 				bullet.x - img_bullet.cx, 
 				bullet.y - img_bullet.cy, 
 				img_bullet.width, 
-				img_bullet.height);
+				img_bullet.height
+			);
 
 			// 判断中弹
 			if(bullet.hit(jiki.x, jiki.y, jiki.judging_radius)){
 				se_biu.currentTime = 0;
-				se_biu.play();
+				// se_biu.play();
+				// 好吵啊……不放了……
 
 				// 击中后删除该弹
 				bullet.remove = true;
 			}
 		}
-
+		return bullet.remove === false;
 	});
-	danmaku = danmaku.filter(bullet=>(bullet.remove === false));
 	// 删除置为null的弹幕
 
-	jiki_dmk.forEach(bullet=>{
+	jiki_dmk = jiki_dmk.filter(bullet=>{
 		// 同理，刷新自机弹幕位置，并绘制弹幕
 		bullet.get_posi(frames_total);
 		if(bullet.remove === false){
 
 			// new 画弹幕
 			const img_bullet = bullet.get_img();
-			ctxm.drawImage(img_bullet.img, 
+			ctxm.drawImage(
+				img_bullet.img, 
 				bullet.x - img_bullet.cx, 
 				bullet.y - img_bullet.cy, 
 				img_bullet.width, 
-				img_bullet.height);
-
+				img_bullet.height
+			);
 		}
-
+		return bullet.remove === false;
 	});
-	jiki_dmk = jiki_dmk.filter(bullet=>(bullet.remove === false));
 
-	// new 画自机
-	const img_jiki = jiki.get_img();
-	ctxm.drawImage(img_jiki.img, 
-		jiki.x - img_jiki.cx, 
-		jiki.y - img_jiki.cy, 
-		img_jiki.width, 
-		img_jiki.height);
 	
 	// 算fps
 	frames_count++;

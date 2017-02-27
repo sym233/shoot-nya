@@ -7,7 +7,7 @@ https://sym233.github.io/shoot-nya/
 
 chrome 55、firefox 47 正常
 
-ie 11不支持es6的const
+ie 11不支持es6的=>
 
 edge 38的KeyboardEvent没有code属性
 

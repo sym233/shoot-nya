@@ -32,6 +32,10 @@
 			height: 100%;
 
 		}
+
+		div.hidden-div{
+			display: none;
+		}
 	</style>
 </head>
 <body>
@@ -49,6 +53,11 @@
 		<p>喵</p>
 		<p>喵</p>
 		<p><span id='fps-display'></span>fps</p>
+		<p>miss <span id="miss-display">0</span></p>
+	</div>
+
+	<div class="hidden-div" id="hidden-div">
+		<canvas id="cnvs_jiki_img"></canvas>
 	</div>
 	<script type="text/javascript" src="./js/touhounya.js"></script>
 </body>
