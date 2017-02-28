@@ -44,6 +44,7 @@ canvas_main.height = canvas_height;
 canvas_main.width = canvas_width;
 const fps_dis = document.getElementById('fps-display');
 const miss_dis = document.getElementById('miss-display');
+const graze_dis = document.getElementById('graze-display');
 
 const hidden_div = document.getElementById('hidden-div');
 const cnvs_jiki_img = document.getElementById('cnvs_jiki_img');
@@ -221,19 +222,39 @@ class Bullet_Round_n extends Bullet{
 	hit(jiki_x, jiki_y, jiki_r){
 		// 判断是否射中自机，输入自机的x、y、半径
 		let dx = Math.abs(jiki_x - this.x);
+		let dy = Math.abs(jiki_y - this.y);
 		let min_d_center = jiki_r + this.radius;
-		if(dx < min_d_center){
-			// x间距小于半径
-			let dy = Math.abs(jiki_y - this.y);
-			if(dy < min_d_center){
-				// y间距小于半径
 
-				jiki.misses ++;
-				// miss数+1
-				return dx*dx + dy*dy < min_d_center*min_d_center;
-			}
-		}
-		return false;
+		// if(this.grazed === false && dx*dx + dy*dy < 9*min_d_center*min_d_center){
+		// 	// 判断擦弹
+		// 	this.grazed = true;
+		// 	jiki.grazes++;
+		// }
+		// if(dx*dx + dy*dy < min_d_center*min_d_center){
+		// 	jiki.misses ++;
+		// 	// miss数+1
+		// 	return true;
+		// }else{
+		// 	return false;
+		// }
+
+		let grazed = !this.grazed && (dx*dx + dy*dy < 9*min_d_center*min_d_center);
+		let hit = dx*dx + dy*dy < min_d_center*min_d_center;
+
+		return [grazed, hit];
+
+		// if(dx < min_d_center){
+		// 	// x间距小于半径
+		// 	let dy = Math.abs(jiki_y - this.y);
+		// 	if(dy < min_d_center){
+		// 		// y间距小于半径
+
+		// 		jiki.misses ++;
+		// 		// miss数+1
+		// 		return dx*dx + dy*dy < min_d_center*min_d_center;
+		// 	}
+		// }
+		// return false;
 	}
 }
 
@@ -546,6 +567,7 @@ function frame_draw(){
 		img_jiki.height
 	);
 	miss_dis.innerHTML = jiki.misses;
+	graze_dis.innerHTML = jiki.grazes;
 
 	danmaku = danmaku.filter(bullet=>{
 		// 将弹幕的foreach遍历和filter合并
@@ -564,14 +586,28 @@ function frame_draw(){
 			);
 
 			// 判断中弹
-			if(bullet.hit(jiki.x, jiki.y, jiki.judging_radius)){
-				se_biu.currentTime = 0;
-				// se_biu.play();
-				// 好吵啊……不放了……
+			// 和擦弹
 
-				// 击中后删除该弹
-				bullet.remove = true;
+			let hit;
+			let graze;
+			[graze, hit] = bullet.hit(jiki.x, jiki.y, jiki.judging_radius);
+			if(graze){
+				bullet.grazed = true;
+				jiki.grazes++;
 			}
+			if(hit){
+				bullet.remove = true;
+				jiki.misses++;
+			}
+
+			// if(bullet.hit(jiki.x, jiki.y, jiki.judging_radius)){
+			// 	se_biu.currentTime = 0;
+			// 	// se_biu.play();
+			// 	// 好吵啊……不放了……
+
+			// 	// 击中后删除该弹
+			// 	bullet.remove = true;
+			// }
 		}
 		return bullet.remove === false;
 	});
