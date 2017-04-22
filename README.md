@@ -3,6 +3,8 @@ try to make a stg
 
 https://sym233.github.io/shoot-nya/
 
+方向键上下左右，z射击，shift慢速
+
 测试了一下浏览器：
 
 chrome 55、firefox 47 正常
