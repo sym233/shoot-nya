@@ -92,14 +92,36 @@ const ctx_jiki = cnvs_jiki_img.getContext('2d');
 // 载入音效
 const se_biu = new Audio('./se/se_pldead00.wav');
 
-// 载入图形
-const img_judging_radius_1 = new Image();
-img_judging_radius_1.src = './img/jiki/judging_radius_1.png';
 
-const img_bullet_round_n_1 = new Image();
-img_bullet_round_n_1.src = './img/danmaku/bullet_round_n_1.png';
+const lo = new Aloader();
+console.log(lo);
+lo.onchange = function(){
+	ctxm.clearRect(0, 0, canvas_width, canvas_height);
+	ctxm.font = '48px';
+	ctxm.fillText(`loading ${this.succ}/${this.tot}...`, 100, 100)
+	console.log(`loading ${this.succ}/${this.tot}...`);
+};
+
+// 载入图形
+lo.add('./img/jiki/judging_radius_1.png', 'image', 'img_judging_radius_1');
+// const img_judging_radius_1 = new Image();
+// img_judging_radius_1.src = './img/jiki/judging_radius_1.png';
+
+// const img_bullet_round_n_1 = new Image();
+// img_bullet_round_n_1.src = './img/danmaku/bullet_round_n_1.png';
+lo.add('./img/danmaku/bullet_round_n_1.png', 'image', 'img_bullet_round_n_1');
+
 const img_enm_n_1 = new Image();
 img_enm_n_1.src = './img/enemies/e1.png';
+
+let img_judging_radius_1;
+let img_bullet_round_n_1;
+lo.endadd(()=>{
+	console.log('finish');
+	img_judging_radius_1 = lo.img['img_judging_radius_1'];
+	img_bullet_round_n_1 = lo.img['img_bullet_round_n_1'];
+
+});
 
 const img_jiki_bullet_1 = new Image();
 img_jiki_bullet_1.src = './img/jiki/bullet/b1.png';
