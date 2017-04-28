@@ -3,7 +3,7 @@ try to make a stg
 
 https://sym233.github.io/shoot-nya/
 
-方向键上下左右，z射击，shift慢速
+方向键上下左右，z射击，shift慢速，esc暂停
 
 测试了一下浏览器：
 
