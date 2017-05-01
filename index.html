@@ -27,6 +27,12 @@
 		canvas#canvas-main{
 			border: 1px solid black;
 			margin: 5%;
+			z-index: 1;
+		}
+		canvas#canvas-bg{
+			border: none;
+			position: absolute;
+			z-index: -1;
 		}
 		div.right-side{
 			height: 100%;
@@ -44,6 +50,9 @@
 		<div class="content">
 			<canvas id="canvas-main">
 				你的浏览器不支持canvas呢
+			</canvas>
+			<canvas id="canvas-bg">
+				
 			</canvas>
 		</div>
 	</div>

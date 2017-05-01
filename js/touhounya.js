@@ -47,6 +47,12 @@ const fps_dis = document.getElementById('fps-display');
 const miss_dis = document.getElementById('miss-display');
 const graze_dis = document.getElementById('graze-display');
 
+const canvas_bg = document.getElementById('canvas-bg');
+canvas_bg.width = canvas_width;
+canvas_bg.height = canvas_height;
+canvas_bg.style.left = `${canvas_main.offsetLeft}px`;
+canvas_bg.style.top = `${canvas_main.offsetTop}px`;
+
 const hidden_div = document.getElementById('hidden-div');
 const cnvs_jiki_img = document.getElementById('cnvs_jiki_img');
 
@@ -69,13 +75,15 @@ const keys_map = {
 const keys_num = 7;
 const keys_status = Array.from({length: keys_num}).fill(false);
 const keys_count = Array.from({length: keys_num}).fill(0);
+const keys_last_fires = Array.from({length: keys_num}).fill(0);
 let game_paused = false;
 // 按键状态，false为未按下
-// [up, down , left, right, slow, shoot]
+// [up, down , left, right, slow, shoot, esc]
 
 function key_down_fn(ev){
 	if(ev.code in keys_map){
 		keys_status[keys_map[ev.code]] = true;
+		keys_last_fires[keys_map[ev.code]] = Date.now();
 		if(ev.code === 'Escape'){
 			game_paused = !game_paused;
 		}
@@ -97,6 +105,7 @@ body.addEventListener('keyup', key_up_fn);
 // 初始化canvas
 const ctxm = canvas_main.getContext('2d');
 const ctx_jiki = cnvs_jiki_img.getContext('2d');
+const ctxbg = canvas_bg.getContext('2d');
 
 const lo = new Aloader();
 console.log(lo);
@@ -388,6 +397,14 @@ class Enemy_n_1 extends Enemy{
 		});
 	}
 
+	shoot(frame){
+		if(frame % 50 < 10){
+			// 敌机定时发射自机狙弹幕
+			this.shoot_jikinerai(jiki.x, jiki.y, frame, Bullet_Round_n);
+		}
+	}
+
+
 	shoot_jikinerai(target_x, target_y, start_frame, bullet_type){
 		// 自機狙い弾
 		let bullet = new Bullet_Round_n(
@@ -425,8 +442,6 @@ class Jiki{
 		// 设置自机图形宽高
 		cnvs_jiki_img.width = this.width;
 		cnvs_jiki_img.height = this.height;
-
-		
 
 	}
 
@@ -517,7 +532,7 @@ let jiki = new Jiki();
 let prev_fra_ts = Date.now(); // previous frame time stamp
 let frames_count = 0;
 let frames_total = 0;
-let game_layer;
+let pause_layer;
 
 function read_key(){
 	// 判断按键，刷新自机位置
@@ -545,9 +560,7 @@ function read_key(){
 
 function fresh_enm(frame){
 	// 刷新敌机位置
-	if(frame === 300){
-		enemies.push(new Enemy_n_1(canvas_width / 2, canvas_height * 0.2, 300, round_to_cent_1));
-	}
+	
 	enemies.forEach(enemy=>{
 		enemy.get_posi(frame);
 		const img_enemy = enemy.get_img();
@@ -560,18 +573,15 @@ function fresh_enm(frame){
 			img_enemy.height
 		);
 
-		// 敌机定时发射自机狙弹幕
-		if(frame % 50 < 10){
-			enemy.shoot_jikinerai(jiki.x, jiki.y, frame, Bullet_Round_n);
-			
-		
-		}
+		// 发射弹幕
+		enemy.shoot(frame);
+
 		// 是否被击中
 		enemy.is_shot();
 
 		if(enemy.show_hp){
 			// 画hp圈
-			ctxm.strokeStyle = 'rgba(230, 72, 72, 0.7)';
+			ctxm.strokeStyle = 'rgba(230, 72, 72, 0.6)';
 			ctxm.lineWidth = 15 * scala;
 			ctxm.beginPath();
 			ctxm.arc(enemy.x, enemy.y, enemy.width*0.7, -Math.PI/2, -2*Math.PI*enemy.hp/enemy.maxhp-Math.PI/2, true);
@@ -647,90 +657,220 @@ function fresh_dmk(frame){
 	});
 }
 
+// 是否为暂停的第一帧
 let first_pause_frame = true;
+
+const pause_menu = {
+	list: [
+		[
+			'continue',
+			'also continue',
+
+		],
+	],
+	
+	pointer: 0,
+	pointer_lv: 0,
+
+};
+
+function key_pressed(){
+	// 当前正在按下的键中最后按下的，包括，0、1、2、3、5，-1为没有
+	// 用 key_prs接收返回值
+	// shift 不计入
+	let last_fired = 0;
+	let dir = -1;
+	for(let i = 0; i < 7 ; i++){
+		if(i !== 4 && keys_status[i] && keys_last_fires[i] >= last_fired){
+			last_fired = keys_last_fires[i];
+			dir = i;
+		}
+		if(i < 4){
+			// 方向键不持续触发
+			keys_status[i] = false;
+		}
+	}
+	return dir;
+}
+
+
+function stage1(frame){
+	if(frame === 300){
+		// 创建敌机
+		enemies.push(new Enemy_n_1(canvas_width / 2, canvas_height * 0.2, 300, round_to_cent_1));
+	}
+
+
+	// 定时创造弹幕 
+	if(frame-200 >= 0 && frame%4 === 0){
+		let x = canvas_width * Math.random();
+		let y = canvas_height * 0.2;
+		let bullet = new Bullet_Round_n(
+			x,
+			y,
+			frames_total,
+			20,
+			straight_line(2.5 - Math.random() * 5, 2.5 + Math.random() * 5),
+			img_bullet_round_n_1
+		);
+		danmaku.push(bullet);
+	}
+
+
+}
+
+// 游戏的关卡状态，0未未开始
+let game_stage = 0;
+
+// 当前正在按下的键中最后按下的，包括，0、1、2、3、5，-1为没有
+let key_prs = -1;
+
 function frame_draw(){
 	
 	if(lo.finished === false){
+		// 资源未加载完成
 		ctxm.clearRect(0, 0, canvas_width, canvas_height);
 		ctxm.font = '80px sans-serif';
-		ctxm.fillText(`loading ${lo.succ}/${lo.tot}...`, 10, 100)
+		ctxm.fillText(`loading ${lo.succ}/${lo.tot}...`, 10, 100);
 		console.log(`loading ${lo.succ}/${lo.tot}...`);
 		return;
 	}
 
-	if(game_paused){
-		// pause
-		if(first_pause_frame){
+	if(game_stage === 0){
+		// 开始页面
+		ctxm.clearRect(0, 0, canvas_width, canvas_height);
+		ctxm.font = '50px sans-serif';
+		ctxm.fillText('东方喵喵喵（仮', 100, 200);
+		ctxm.font = '40px sans-serif';
+		ctxm.fillText('press z to start', 110, 400);
+		key_prs = key_pressed();
+		if(key_prs === 5){
+			game_stage++;
+		}
+	}else{
+		// game_stage > 0
+
+		if(game_paused){
+			// pause
+			if(first_pause_frame){
+				
+
+				ctxm.fillStyle = 'rgba(255, 255, 255, 0.4)';
+				ctxm.fillRect(0, 0, canvas_width, canvas_height);
+
+				ctxm.font = '100px sans-serif';
+				ctxm.fillStyle = 'black';
+				ctxm.fillText('pause', 100, 200);
+
+				// ctxm.globalAlpha = 0.4;
+				// ctxm.globalAlpha = 1;
+				
+
+				pause_layer = new Image();
+
+				// toBlob vs toDataURL 
+				// canvas_main.toBlob(blob=>{
+				// 	pause_layer.src = URL.createObjectURL(blob);
+				// 	pause_layer.onload = ()=>{
+				// 		URL.revokeObjectURL(pause_layer.src);
+				// 	};
+				// });
+
+				pause_layer.src = canvas_main.toDataURL();
+				//发现toBlob比toDataURL慢，会有明显的空白帧
+
+				first_pause_frame = false;
+
+				// 初始化暂停菜单的选择
+				pause_menu.pointer = 0;
+				pause_menu.pointer_lv = 0;
+			}else{
+
+				if(pause_layer.complete){
+					ctxm.clearRect(0, 0, canvas_width, canvas_height);
+					ctxm.drawImage(pause_layer, 0, 0);
+				}
+
+				key_prs = key_pressed();
+
+				if(key_prs === 0){
+					pause_menu.pointer--;
+					if(pause_menu.pointer < 0){
+						pause_menu.pointer = 0;
+					}
+				}
+
+				if(key_prs === 1){
+					pause_menu.pointer++;
+					if(pause_menu.pointer >= pause_menu.list[pause_menu.pointer_lv].length){
+						pause_menu.pointer = pause_menu.list[pause_menu.pointer_lv].length - 1;
+					}
+				}
+
+				// 绘制暂停菜单
+				ctxm.font = '50px sans-serif';
+				pause_menu.list[pause_menu.pointer_lv].forEach((item, i)=>{
+					const str = `${(i === pause_menu.pointer)? '>> ':'   '}${item}`;
+					ctxm.fillText(str, 100, 400 + i * 70);
+				});
+				
+				if(key_prs === 5){
+					game_paused = false;
+				}
+
+			}
 			
-			// game_layer = new Image();
-			// game_layer.src = canvas_main.toDataURL();
-			// ctxm.clearRect(0, 0, canvas_width, canvas_height);
-
-			ctxm.fillStyle = 'rgba(255, 255, 255, 0.4)';
-			ctxm.fillRect(0, 0, canvas_width, canvas_height);
-
-			ctxm.font = '100px sans-serif';
-			ctxm.fillStyle = 'black';
-			ctxm.fillText('pause', 100, 200);
-
-			// ctxm.globalAlpha = 0.4;
-
-			// ctxm.drawImage(game_layer, 0, 0);
-
-			// ctxm.globalAlpha = 1;
-			
-			first_pause_frame = false;
 		}else{
 
-		}
-		
-	}else{
-
-		if(first_pause_frame === false){
-			first_pause_frame = true;
-			return;
-		}
+			if(first_pause_frame === false){
+				first_pause_frame = true;
+				return;
+			}
 
 
-		frames_total++;
-		
+			frames_total++;
+			
 
-		ctxm.clearRect(0, 0, canvas_width, canvas_height);
+			ctxm.clearRect(0, 0, canvas_width, canvas_height);
 
-		read_key();
+			read_key();
 
-		fresh_enm(frames_total);
+			fresh_enm(frames_total);
 
-		// 定时创造弹幕 
-		if(frames_total-200 >= 0 && frames_total%4 === 0){
-			let x = canvas_width * Math.random();
-			let y = canvas_height * 0.2;
-			let bullet = new Bullet_Round_n(
-				x,
-				y,
-				frames_total,
-				20,
-				straight_line(2.5 - Math.random() * 5, 2.5 + Math.random() * 5),
-				img_bullet_round_n_1
+			stage1(frames_total);
+
+			// new 画自机
+			const img_jiki = jiki.get_img(keys_status[4]);
+			ctxm.drawImage(img_jiki.img, 
+				jiki.x - img_jiki.cx, 
+				jiki.y - img_jiki.cy, 
+				img_jiki.width, 
+				img_jiki.height
 			);
-			danmaku.push(bullet);
+			miss_dis.innerHTML = jiki.misses;
+			graze_dis.innerHTML = jiki.grazes;
+
+			fresh_dmk(frames_total);
+		
+
+			// 想添加一个阴影，发现帧率掉一半，改成两帧刷新一次阴影，还是掉
+			// 于是不加了。
+			// 另外，敌机的“敌”字没有产生阴影，不知道是哪里的问题
+			// if(frames_total & 1){
+			// 	const game_layer = ctxm.getImageData(0, 0, canvas_width, canvas_height);
+			// 	const bg_layer = new ImageData(canvas_width, canvas_height);
+			// 	for(let i = 0; i < canvas_width * canvas_height; i++){
+			// 		const color_exst = (game_layer.data[i*4] || game_layer.data[i*4+1] || game_layer.data[i*4+2])
+			// 			&& game_layer.data[i*4+3] > 178;
+			// 		// r g b alpha
+			// 		if(color_exst){
+			// 			bg_layer.data[i*4] = bg_layer.data[i*4+1] = bg_layer.data[i*4+2] = 200;
+			// 			bg_layer.data[i*4+3] = game_layer.data[i*4+3]*0.7;
+			// 		}
+			// 	}
+			// 	ctxbg.putImageData(bg_layer, 0, 0);
+			// }
 		}
-
-		// new 画自机
-		const img_jiki = jiki.get_img(keys_status[4]);
-		ctxm.drawImage(img_jiki.img, 
-			jiki.x - img_jiki.cx, 
-			jiki.y - img_jiki.cy, 
-			img_jiki.width, 
-			img_jiki.height
-		);
-		miss_dis.innerHTML = jiki.misses;
-		graze_dis.innerHTML = jiki.grazes;
-
-		fresh_dmk(frames_total);
-		
-		
-
 	}
 
 	// 算fps
